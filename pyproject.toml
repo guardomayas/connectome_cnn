@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cnn-connectome"
+version = "0.1.0"
+description = "Connectome-constrained neural network analyses."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "datamate",
+    "flyvis",
+    "h5py",
+    "numpy",
+    "pandas",
+    "torch",
+    "tqdm",
+]
+[project.optional-dependencies]
+dev = [
+    "ipykernel",
+    "jupyterlab",
+    "pytest",
+    "ruff",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["cnn_connectome*"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"

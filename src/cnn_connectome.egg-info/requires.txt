@@ -1,0 +1,13 @@
+datamate
+flyvis
+h5py
+numpy
+pandas
+torch
+tqdm
+
+[dev]
+ipykernel
+jupyterlab
+pytest
+ruff
