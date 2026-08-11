@@ -1,6 +1,6 @@
 from flyvis import renderings_dir
 from datamate import root, Directory
-from cnn_connectome.datasets import GetNaturalMovies
+from .get_movie import GetNaturalMovies
 from flyvis.datasets.rendering import BoxEye
 from tqdm import tqdm
 import numpy as np
@@ -134,7 +134,7 @@ def _mano_normalize_sequence(lum: torch.Tensor, eps: float = 1e-6) -> torch.Tens
     return (lum - mean) / std      # broadcast over (T, 1, n_hex)
    
 
-def _compute_contrast(lum: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
+def _compute_spatial_contrast(lum: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
     """
     Per-frame Weber contrast: (L - L_t_mean) / L_t_mean,
     where L_t_mean is mean over hexals at each time t.
@@ -149,6 +149,20 @@ def _compute_contrast(lum: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
     c = (x - mean_t) / mean_t_safe           # (T, n_hex)
     return c.unsqueeze(1)                    # (T, 1, n_hex)
 
+def _compute_temporal_contrast(lum: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
+    """
+    TEMPORAL Weber contrast: (L - L_t_mean) / L_t_mean,
+    where L_t_mean is mean over time at each time hexal.
+    """
+    x = lum.squeeze(1)                        # (T, n_hex)
+    mean_over_time = x.mean(dim=0, keepdim=True)  # (1, n_hex)
+
+    # avoid division by zero
+    mean_safe = mean_over_time.clone()
+    mean_safe[mean_safe.abs() < eps] = eps
+
+    c = (x - mean_safe) / mean_safe           # (T, n_hex)
+    return c.unsqueeze(1)        
 
 
 class NaturalMovie(MultiTaskDataset):
@@ -162,8 +176,8 @@ class NaturalMovie(MultiTaskDataset):
 
     get_item returns:
     'raw_lum':       (T_out, 1, n_hex) raw luminance
-    'lum_mano':  (T_out, 1, n_hex)     Mano-normalized luminance (per-sequence z-score)
-    'contrast':  (T_out, 1, n_hex)     per-frame Weber contrast
+    'spatial_contrast':  (T_out, 1, n_hex)     per-frame Weber contrast
+    'temporal_contrast':  (T_out, 1, n_hex)    temporal Weber contrast
     'vel':       (T_out,)              velocity trace (task)
     """
 
@@ -251,7 +265,8 @@ class NaturalMovie(MultiTaskDataset):
         Returns:
             dict with
                 'lum':      (T_out, 1, n_hex)  raw luminance
-                'contrast': (T_out, 1, n_hex)  per-frame contrast
+                'spatial_contrast': (T_out, 1, n_hex)  per-frame spatial contrast
+                'temporal_contrast': (T_out, 1, n_hex)  per-frame temporal contrast
                 'vel':      (T_out,)           velocity
         """
         d_ix, local_ix = self._index[key]
@@ -277,7 +292,7 @@ class NaturalMovie(MultiTaskDataset):
 
         return {
             "lum": lum_out,
-            "lum_mano": _mano_normalize_sequence(lum_out),
-            "contrast":  _compute_contrast(lum_out),
+            "spatial_contrast":   _compute_spatial_contrast(lum_out),
+            "temporal_contrast":  _compute_temporal_contrast(lum_out),
             "vel": vel_out,
         }
