@@ -31,6 +31,9 @@ package-dir = {"" = "src"}
 where = ["src"]
 include = ["cnn_connectome*"]
 
+[tool.setuptools.package-data]
+cnn_connectome = ["rf_data/*.csv"]
+
 [tool.ruff]
 line-length = 88
 target-version = "py312"
