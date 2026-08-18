@@ -2,6 +2,10 @@ import os,glob
 import numpy as np
 import h5py
 
+import os,glob
+import numpy as np
+import h5py
+
 class GetNaturalMovies:
     """
         Attributes
@@ -44,10 +48,7 @@ class GetNaturalMovies:
         self.percentile_scale = percentile_scale
         self.fov = fov
 
-        # RNG for phase indices
-        self.rng = np.random.default_rng(42)
-
-        # Load images 
+        # Load images
         self.batch_imgs, self.names = self._load_batch()
         self.n_imgs, self.H, self.W = self.batch_imgs.shape
 
@@ -92,13 +93,24 @@ class GetNaturalMovies:
     # ------------------------------------------------------------------
     # Velocity traces
     # ------------------------------------------------------------------
+    # Seed root for velocity-trace RNGs, kept distinct from
+    # `_PHASE_SEED_ROOT` so the two randomization streams can never
+    # collide. See `_generate_phase_indices` for why global (not
+    # batch-local) indexing matters: the old scheme (`seed=i*100+tr`) used
+    # the batch-local image index `i`, so e.g. local image 0 of batch 0 and
+    # local image 0 of batch 1 drew identical velocity traces. Global
+    # indexing makes each image's traces independent of how the corpus is
+    # split into batches.
+    _VEL_SEED_ROOT = 20260818_1
+
     def _generate_velocity_traces(self):
         self.vel_traces = np.zeros((self.n_imgs, self.traces_per_img, self.numTime))
         self.positions = np.zeros((self.n_imgs, self.traces_per_img, self.numTime))
 
         for i in range(self.n_imgs):
+            global_idx = self.batch_idx * self.batch_size + i
             for tr in range(self.traces_per_img):
-                vel = self._vel_trace(seed=i * 100 + tr)
+                vel = self._vel_trace(seed=(self._VEL_SEED_ROOT, global_idx, tr))
                 pos = np.cumsum(vel) / self.sampleFreq
                 pos -= pos[0]
 
@@ -124,10 +136,34 @@ class GetNaturalMovies:
     # ------------------------------------------------------------------
     # Phase indices
     # ------------------------------------------------------------------
+    # Seed root for phase-offset RNGs. Combined with a *global* image index
+    # (not the batch-local index) via a SeedSequence, so offsets are both
+    # independent per image and reproducible across different batch_idx /
+    # batch_size choices. Kept as a distinct constant from the velocity
+    # seeding scheme (`seed=i*100+tr` in `_generate_velocity_traces`) so the
+    # two randomization streams can never accidentally collide.
+    _PHASE_SEED_ROOT = 20260818
+
     def _generate_phase_indices(self):
-        phases_pixels = self.rng.integers(0, self.W, size=self.phases_per_img)
-        self.phases_pixels = phases_pixels
-        self.phase_indices = (np.arange(self.W)[None, :] - phases_pixels[:, None]) % self.W
+        # Previously all images shared one set of offsets, drawn once from a
+        # single global `self.rng`: phase index k always meant "shift by the
+        # same k-th pixel offset" for every scene in the corpus. That ties
+        # "phase index" to a fixed absolute azimuthal offset across the
+        # whole dataset -- a confound for any analysis or split that groups
+        # by phase. Each image now gets its own independent draw.
+        self.phases_pixels = np.zeros((self.n_imgs, self.phases_per_img), dtype=int)
+        self.phase_indices = np.zeros((self.n_imgs, self.phases_per_img, self.W), dtype=int)
+
+        for i in range(self.n_imgs):
+            global_idx = self.batch_idx * self.batch_size + i
+            rng = np.random.default_rng((self._PHASE_SEED_ROOT, global_idx))
+            phases_pixels = rng.integers(0, self.W, size=self.phases_per_img)
+
+            self.phases_pixels[i] = phases_pixels
+            self.phase_indices[i] = (
+                np.arange(self.W)[None, :] - phases_pixels[:, None]
+            ) % self.W
+
         print(f"[Phase] Phase indices: {self.phase_indices.shape}")
     # ------------------------------------------------------------------
     # Enumerate movies
@@ -155,7 +191,7 @@ class GetNaturalMovies:
                 self.batch_imgs[img_idx],
                 self.positions[img_idx, trace_idx],
                 phase_idx,
-                self.phase_indices,
+                self.phase_indices[img_idx],
                 window_width=Ww
             )
 
@@ -176,14 +212,29 @@ class GetNaturalMovies:
         _, width = shifted.shape
 
         deg_per_pix = 360.0 / width
-        pix_pos = np.round(pos / deg_per_pix).astype(int) % width
+
+        # Continuous (sub-pixel) horizontal position, wrapped into [0, width).
+        # Previously this was rounded to the nearest integer pixel, which
+        # quantizes the motion trajectory: at low speeds especially, the FOV
+        # would sit still for several frames and then jump a whole pixel,
+        # injecting spurious high-frequency temporal structure that has
+        # nothing to do with the true (smooth) OU velocity trace.
+        pix_pos = (pos / deg_per_pix) % width
+
+        pos_floor = np.floor(pix_pos).astype(int)
+        frac = (pix_pos - pos_floor).astype(shifted.dtype)  # (T,) in [0, 1)
 
         offsets = np.arange(window_width) - window_width // 2
 
-        all_idx = (
-            pix_pos[:, None] + offsets[None, :]
-        ) % width
+        idx0 = (pos_floor[:, None] + offsets[None, :]) % width  # (T, window_width)
+        idx1 = (idx0 + 1) % width
 
-        movie = shifted[:, all_idx]
+        col0 = shifted[:, idx0]  # (H, T, window_width)
+        col1 = shifted[:, idx1]  # (H, T, window_width)
+
+        # Linear interpolation along the azimuthal (circular) axis only;
+        # the elevation (H) axis is never resampled, so no 2D/bilinear
+        # interpolation is needed there.
+        movie = col0 * (1.0 - frac)[None, :, None] + col1 * frac[None, :, None]
 
         return movie.transpose(1, 0, 2)

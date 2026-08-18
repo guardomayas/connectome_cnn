@@ -12,7 +12,7 @@ from pathlib import Path
 from flyvis.datasets.datasets import SequenceDataset, MultiTaskDataset
 from typing import List, Dict
 
-__all__ = ["RenderedNaturalMov_2", "NaturalMovie"]
+__all__ = ["RenderedNaturalMov", "NaturalMovie"]
 
 
 
@@ -48,7 +48,7 @@ def resolve_data_path(data_path=None):
     )
 
 @root(renderings_dir)
-class RenderedNaturalMov_2(Directory):
+class RenderedNaturalMov(Directory):
 
     class Config(dict):
         extent: int
@@ -209,9 +209,9 @@ def _compute_temporal_contrast(lum: torch.Tensor, eps: float = 1e-6) -> torch.Te
 
 class NaturalMovie(MultiTaskDataset):
     """
-    Dataset view over one or more RenderedNaturalMov_2 directories.
+    Dataset view over one or more RenderedNaturalMov directories.
 
-    Each RenderedNaturalMov_2 corresponds to a batch of natural scenes
+    Each RenderedNaturalMov corresponds to a batch of natural scenes
     (controlled via batch_idx / batch_size in its Config).
 
     This class merges all batches into a single dataset.
@@ -243,7 +243,7 @@ class NaturalMovie(MultiTaskDataset):
             cfgs = [rendered_data_config]
 
         # 2) Build one RenderedNaturalMov_2 per config (one batch each)
-        self.dirs = [RenderedNaturalMov_2(cfg) for cfg in cfgs]
+        self.dirs = [RenderedNaturalMov(cfg) for cfg in cfgs]
 
         # 3) Build a global index: dataset idx -> (dir_idx, local_idx)
         self._index = []
