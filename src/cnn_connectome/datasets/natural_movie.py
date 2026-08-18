@@ -8,11 +8,44 @@ import torch
 import pandas as pd
 import re
 import glob, os
+from pathlib import Path
 from flyvis.datasets.datasets import SequenceDataset, MultiTaskDataset
 from typing import List, Dict
 
 __all__ = ["RenderedNaturalMov_2", "NaturalMovie"]
 
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+
+def resolve_data_path(data_path=None):
+    """Resolve the panoramic-scene directory independently of the notebook CWD.
+
+    An explicit path takes precedence, followed by ``CNN_CONNECTOME_DATA_DIR``.
+    Relative paths are checked from the current directory, the repository root,
+    and the repository's parent (where this project's ``pano_scenes`` lives).
+    """
+    configured_path = data_path or os.environ.get(
+        "CNN_CONNECTOME_DATA_DIR", "pano_scenes"
+    )
+    path = Path(configured_path).expanduser()
+
+    candidates = [path] if path.is_absolute() else [
+        Path.cwd() / path,
+        PROJECT_ROOT / path,
+        PROJECT_ROOT.parent / path,
+    ]
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate.resolve()
+
+    attempted = "\n  - ".join(str(candidate.resolve()) for candidate in candidates)
+    raise FileNotFoundError(
+        "Could not find the panoramic-scene directory. Tried:\n"
+        f"  - {attempted}\n"
+        "Pass data_path explicitly or set CNN_CONNECTOME_DATA_DIR."
+    )
 
 @root(renderings_dir)
 class RenderedNaturalMov_2(Directory):
@@ -30,7 +63,7 @@ class RenderedNaturalMov_2(Directory):
         velStd: float = 100
         sampleFreq: int = 60
         totalTime: int = 3
-        # contrast_gain: float = 1.1
+        precentile_scale: float = 99.0
         fov: int = 250
 
     def __init__(self, config: Config):
@@ -55,7 +88,7 @@ class RenderedNaturalMov_2(Directory):
             velStd=config.velStd,
             sampleFreq=config.sampleFreq,
             totalTime=config.totalTime,
-            # contrast_gain=config.contrast_gain,
+            percentile_scale = config.percentile_scale,
             fov=config.fov,
         )
 
@@ -153,6 +186,15 @@ def _compute_temporal_contrast(lum: torch.Tensor, eps: float = 1e-6) -> torch.Te
     """
     TEMPORAL Weber contrast: (L - L_t_mean) / L_t_mean,
     where L_t_mean is mean over time at each time hexal.
+        $$
+        C(t,p)
+        =
+        \frac{L(t,p)-\bar{L}(p)}
+        {\bar{L}(p)}, \qquad \bar{L}(p) =
+        \frac{1}{T}
+        \sum_{t=1}^{T}
+        L(t,p)
+        $$
     """
     x = lum.squeeze(1)                        # (T, n_hex)
     mean_over_time = x.mean(dim=0, keepdim=True)  # (1, n_hex)

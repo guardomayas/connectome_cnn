@@ -30,7 +30,7 @@ class GetNaturalMovies:
     """
     def __init__(self, data_path='pano_scenes/', batch_idx=0, batch_size=5,
                  halfLife=0.2, velStd=100, sampleFreq=60, totalTime=3,
-                 traces_per_img=2, phases_per_img=3, contrast_gain=1.1, fov=450):
+                 traces_per_img=2, phases_per_img=3, fov=450, percentile_scale = 99):
         self.data_path = data_path
         self.batch_idx = batch_idx
         self.batch_size = batch_size
@@ -41,7 +41,7 @@ class GetNaturalMovies:
         self.sampleFreq = sampleFreq
         self.totalTime = totalTime
         self.numTime = int(sampleFreq * totalTime) + 1
-        # self.contrast_gain = contrast_gain
+        self.percentile_scale = percentile_scale
         self.fov = fov
 
         # RNG for phase indices
@@ -79,32 +79,16 @@ class GetNaturalMovies:
         for fname in batch_files:
             with h5py.File(fname, 'r') as f:
                 proj = np.array(f["projection"]).T
-
-            img = proj / proj.max()
             names.append(os.path.basename(fname))
 
-            # if self._is_dark(img):
-            #     print(f"[Brighten] Dark image: {fname}")
-            #     img = self._percentile_brighten(img)
-
-            # img = (img - img.mean()) * self.contrast_gain + img.mean()
-            imgs.append(img)
+            imgs.append(proj)
 
         imgs = np.stack(imgs)
+        scene_scale = np.percentile(imgs, self.percentile_scale, axis=(1, 2))
+        imgs /= scene_scale[:, None, None]
         return np.clip(imgs, 0, 1), names
 
 
-    # def _is_dark(self, img, min_range=0.18, p95_threshold=0.30):
-    #     dyn = img.max() - img.min()
-    #     p95 = np.percentile(img, 95)
-    #     return (dyn < min_range) or (p95 < p95_threshold)
-
-
-    # def _percentile_brighten(self, img, low=1, high=95):
-    #     p_low, p_high = np.percentile(img, [low, high])
-    #     if p_high - p_low < 1e-5:
-    #         return img
-    #     return np.clip((img - p_low) / (p_high - p_low), 0, 1)
     # ------------------------------------------------------------------
     # Velocity traces
     # ------------------------------------------------------------------
