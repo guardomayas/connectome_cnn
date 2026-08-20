@@ -13,7 +13,7 @@ def load_input_table(cell_class: str) -> pd.DataFrame:
     """Load the fitted RF/temporal-filter params for a T4 or T5 input celltype table."""
     if cell_class not in _FILES:
         raise ValueError(f"Unknown cell_class {cell_class!r}, expected one of {list(_FILES)}")
-    return pd.read_csv(_FILES[cell_class]).set_index("Celltype")
+    return pd.read_csv(_FILES[cell_class])
 
 
 def get_dog_params(cell_class: str, celltype: str) -> dict:
