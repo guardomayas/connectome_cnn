@@ -338,3 +338,5 @@ class Hex_NaturalMovie(MultiTaskDataset):
             "temporal_contrast":  _compute_temporal_contrast(lum_out),
             "vel": vel_out,
         }
+
+
