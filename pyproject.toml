@@ -5,12 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cnn-connectome"
 version = "0.1.0"
-description = "Connectome-constrained neural network analyses."
+description = "Connectome-constrained neural network linear front-end."
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "datamate",
     "flyvis",
     "h5py",
+    "matplotlib",
     "numpy",
     "pandas",
     "torch",
@@ -22,6 +23,8 @@ dev = [
     "jupyterlab",
     "pytest",
     "ruff",
+    "scipy",
+    "seaborn",
 ]
 
 [tool.setuptools]

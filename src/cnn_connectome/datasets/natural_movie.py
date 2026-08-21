@@ -1,6 +1,6 @@
 from flyvis import renderings_dir
 from datamate import root, Directory
-from .get_movie import GetNaturalMovies
+from .make_movie_from_pano import GetNaturalMovies
 from flyvis.datasets.rendering import BoxEye
 from tqdm import tqdm
 import numpy as np
@@ -48,7 +48,7 @@ def resolve_data_path(data_path=None):
     )
 
 @root(renderings_dir)
-class RenderedNaturalMov(Directory):
+class Hex_RenderedNaturalMov(Directory):
 
     class Config(dict):
         extent: int
@@ -207,7 +207,7 @@ def _compute_temporal_contrast(lum: torch.Tensor, eps: float = 1e-6) -> torch.Te
     return c.unsqueeze(1)        
 
 
-class NaturalMovie(MultiTaskDataset):
+class Hex_NaturalMovie(MultiTaskDataset):
     """
     Dataset view over one or more RenderedNaturalMov directories.
 

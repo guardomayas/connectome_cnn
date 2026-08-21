@@ -8,3 +8,6 @@ venv/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Rendered animation exports
+notebooks/_movies/

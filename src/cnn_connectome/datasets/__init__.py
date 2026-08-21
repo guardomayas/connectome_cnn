@@ -1,8 +1,8 @@
-from .get_movie import GetNaturalMovies
-from .natural_movie import NaturalMovie, RenderedNaturalMov
+from .make_movie_from_pano import GetNaturalMovies
+from .natural_movie import Hex_NaturalMovie, Hex_RenderedNaturalMov
 
 __all__ = [
     "GetNaturalMovies",
-    "NaturalMovie",
-    "RenderedNaturalMov",
+    "Hex_NaturalMovie",
+    "Hex_RenderedNaturalMov",
 ]

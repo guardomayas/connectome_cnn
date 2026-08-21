@@ -15,7 +15,7 @@ def load_input_table(cell_class: str) -> pd.DataFrame:
         raise ValueError(f"Unknown cell_class {cell_class!r}, expected one of {list(_FILES)}")
     return pd.read_csv(_FILES[cell_class])
 
-
+## NEEDs fixing
 def get_dog_params(cell_class: str, celltype: str) -> dict:
     """Return DoG params for one input celltype, ready to pass into DoG_1D/DoG_2D."""
     row = load_input_table(cell_class).loc[celltype]

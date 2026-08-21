@@ -32,9 +32,17 @@ class GetNaturalMovies:
         all_movies : np.ndarray
             Rendered movies. Shape: (num_movies, T, H, fov).
     """
-    def __init__(self, data_path='pano_scenes/', batch_idx=0, batch_size=5,
-                 halfLife=0.2, velStd=100, sampleFreq=60, totalTime=3,
-                 traces_per_img=2, phases_per_img=3, fov=450, percentile_scale = 99):
+    def __init__(self, data_path='pano_scenes/', 
+                 batch_idx=0, 
+                 batch_size=5,
+                 halfLife=0.2, 
+                 velStd=100, 
+                 sampleFreq=60, 
+                 totalTime=3,
+                 traces_per_img=2, 
+                 phases_per_img=3, 
+                 fov=250, 
+                 percentile_scale = 99):
         self.data_path = data_path
         self.batch_idx = batch_idx
         self.batch_size = batch_size
